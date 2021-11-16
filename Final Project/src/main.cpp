@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
 
+/* THERMISTOR */
+
 #define INTAKETHERMISTORPIN A0
 #define ROOMTHERMISTORPIN A1
 
@@ -12,6 +14,21 @@
 
 int intake_samples[NUMSAMPLES];
 int room_samples[NUMSAMPLES];
+
+/* H-Bridge/Motor Control */
+const int controlPin1 = 6;
+const int controlPin2 = 7;
+const int enablePin = 9;
+const int directionSwitchPin = 8;
+const int onOffSwitchStateSwitchPin = 10;
+const int potPin = A2;
+int onOffSwitchState = 0;
+int previousOnOffSwitchState = 0;
+int directionSwitchState = 0;
+int previousDirectionSwitchState = 0;
+int motorEnabled = 0;
+int motorSpeed = 0;
+int motorDirection = 1;
 
 unsigned long data_count = 0;
 
@@ -35,6 +52,13 @@ void setup() {
   Serial.begin(9600);
   lcd.begin(16, 2);
   analogReference(EXTERNAL);
+
+  pinMode(directionSwitchPin, INPUT);
+  pinMode(onOffSwitchStateSwitchPin, INPUT);
+  pinMode(controlPin1, OUTPUT);
+  pinMode(controlPin2, OUTPUT);
+  pinMode(enablePin, OUTPUT);
+  digitalWrite(enablePin, LOW);
 }
 
 void loop() {
@@ -87,4 +111,34 @@ void loop() {
   Serial.print(",");
   Serial.println(room_temp);
 
+  // Motor control - pot modifies speed
+  onOffSwitchState = digitalRead(onOffSwitchStateSwitchPin);
+  delay(1);
+  directionSwitchState = digitalRead(directionSwitchPin);
+  motorSpeed = analogRead(potPin)/4;
+  if(onOffSwitchState != previousOnOffSwitchState){
+    if(onOffSwitchState == HIGH){
+      motorEnabled = !motorEnabled;
+    }
+  }
+  if(directionSwitchState != previousDirectionSwitchState){
+    if(directionSwitchState == HIGH){
+      motorDirection = !motorDirection;
+    }
+  }
+  if(motorDirection == 1){
+    digitalWrite(controlPin1, HIGH);
+    digitalWrite(controlPin2, LOW);
+  }else{
+    digitalWrite(controlPin1, LOW);
+    digitalWrite(controlPin2, HIGH);
+  }
+  analogWrite(enablePin, motorSpeed);
+  // if(motorEnabled == 1){
+  //   analogWrite(enablePin, motorSpeed);
+  // }else{
+  //   analogWrite(enablePin, 0);
+  // }
+  previousDirectionSwitchState = directionSwitchState;
+  previousOnOffSwitchState = onOffSwitchState;
 }
