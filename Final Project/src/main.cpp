@@ -2,7 +2,6 @@
 #include <LiquidCrystal.h>
 
 /* THERMISTOR */
-
 #define INTAKETHERMISTORPIN A0
 #define ROOMTHERMISTORPIN A1
 
@@ -32,10 +31,12 @@ int motorDirection = 1;
 
 unsigned long data_count = 0;
 
+/* LCD */
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
-// Helper function to convert a measured resistance into temperature in Fahrenheit
-float resistance_to_fahrenheit(float resistance){
+/* Helper function, converts measured resistance to Degrees Fahrenheit */
+float resistance_to_fahrenheit(float resistance)
+{
   float steinhart;
   steinhart = resistance / THERMISTORNOMINAL;       // (R/Ro)
   steinhart = log(steinhart);                       // ln(R/Ro)
@@ -48,7 +49,9 @@ float resistance_to_fahrenheit(float resistance){
   return fahrenheit;
 }
 
-void setup() {
+/* Initial Setup */
+void setup()
+{
   Serial.begin(9600);
   lcd.begin(16, 2);
   analogReference(EXTERNAL);
@@ -61,13 +64,16 @@ void setup() {
   digitalWrite(enablePin, LOW);
 }
 
-void loop() {
-  //compute average value of 5 thermistor readings
+/* Main program loop */
+void loop()
+{
+  // compute average value of 5 thermistor readings
   uint8_t i;
   float intake_average;
   float room_average;
 
-  for(i = 0; i < NUMSAMPLES; i++){
+  for (i = 0; i < NUMSAMPLES; i++)
+  {
     intake_samples[i] = analogRead(INTAKETHERMISTORPIN);
     room_samples[i] = analogRead(ROOMTHERMISTORPIN);
     delay(10);
@@ -75,35 +81,39 @@ void loop() {
 
   intake_average = 0;
   room_average = 0;
-  for(i = 0; i < NUMSAMPLES; i++){
+  for (i = 0; i < NUMSAMPLES; i++)
+  {
     intake_average += intake_samples[i];
     room_average += room_samples[i];
   }
   intake_average /= NUMSAMPLES;
   room_average /= NUMSAMPLES;
 
-  // convert the value to resistance
+  // convert average value to resistance
   intake_average = 1023 / intake_average - 1;
   intake_average = SERIESRESISTOR / intake_average;
   room_average = 1023 / room_average - 1;
   room_average = SERIESRESISTOR / room_average;
-  
+
   // use helper function to convert resistance to temperature in F
   float intake_temp = resistance_to_fahrenheit(intake_average);
   float room_temp = resistance_to_fahrenheit(room_average);
 
+  // show results on LCD
   lcd.clear();
-  lcd.setCursor(0,0);
+  lcd.setCursor(0, 0);
   lcd.print("Intake:");
-  lcd.setCursor(8,0);
+  lcd.setCursor(8, 0);
   lcd.print(intake_temp);
-  lcd.setCursor(0,1);
+  lcd.setCursor(0, 1);
   lcd.print("Room:");
-  lcd.setCursor(8,1);
+  lcd.setCursor(8, 1);
   lcd.print(room_temp);
 
+  // log a data point every 1 second (50ms used to find average previously)
   delay(950);
 
+  // log data to serial monitor in CSV format
   data_count++;
   Serial.print(data_count);
   Serial.print(",");
@@ -111,34 +121,39 @@ void loop() {
   Serial.print(",");
   Serial.println(room_temp);
 
-  // Motor control - pot modifies speed
+  // fan control
   onOffSwitchState = digitalRead(onOffSwitchStateSwitchPin);
   delay(1);
   directionSwitchState = digitalRead(directionSwitchPin);
-  motorSpeed = analogRead(potPin)/4;
-  if(onOffSwitchState != previousOnOffSwitchState){
-    if(onOffSwitchState == HIGH){
+  motorSpeed = analogRead(potPin) / 4;
+  if (onOffSwitchState != previousOnOffSwitchState)
+  {
+    if (onOffSwitchState == HIGH)
+    {
       motorEnabled = !motorEnabled;
     }
   }
-  if(directionSwitchState != previousDirectionSwitchState){
-    if(directionSwitchState == HIGH){
+
+  if (directionSwitchState != previousDirectionSwitchState)
+  {
+    if (directionSwitchState == HIGH)
+    {
       motorDirection = !motorDirection;
     }
   }
-  if(motorDirection == 1){
+
+  if (motorDirection == 1)
+  {
     digitalWrite(controlPin1, HIGH);
     digitalWrite(controlPin2, LOW);
-  }else{
+  }
+  else
+  {
     digitalWrite(controlPin1, LOW);
     digitalWrite(controlPin2, HIGH);
   }
   analogWrite(enablePin, motorSpeed);
-  // if(motorEnabled == 1){
-  //   analogWrite(enablePin, motorSpeed);
-  // }else{
-  //   analogWrite(enablePin, 0);
-  // }
+
   previousDirectionSwitchState = directionSwitchState;
   previousOnOffSwitchState = onOffSwitchState;
 }
